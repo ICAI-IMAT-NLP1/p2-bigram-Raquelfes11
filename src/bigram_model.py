@@ -2,9 +2,7 @@ import torch
 from typing import Dict, List
 
 
-def bigrams_count_to_probabilities(
-    bigram_counts: torch.Tensor, smooth_factor: int = 0
-) -> torch.Tensor:
+def bigrams_count_to_probabilities(bigram_counts: torch.Tensor, smooth_factor: int = 0) -> torch.Tensor:
     """
     Convert bigram counts to a probability distribution.
 
@@ -22,9 +20,14 @@ def bigrams_count_to_probabilities(
         to the row index.
     """
     # Normalize each row to sum to 1, converting counts to probabilities, remember to add smooth_factor
-    # TODO
-    return None
+    vocab_size = bigram_counts.shape[0]
 
+    row_sums: torch.Tensor[int] = torch.sum(bigram_counts, dim=1, keepdim=True) + (smooth_factor * vocab_size)
+    smooth_counts: torch.Tensor[int] = bigram_counts + smooth_factor
+
+    probabilities_tensor: torch.Tensor[float] = smooth_counts / row_sums.clamp(min=1)
+
+    return probabilities_tensor
 
 
 def calculate_neg_mean_log_likelihood(
@@ -52,16 +55,15 @@ def calculate_neg_mean_log_likelihood(
         float. The negative mean log likelihood of the list of words.
     """
     # Initialize total log likelihood
-    # TODO
-    total_log_likelihood: torch.tensor = None
+    total_log_likelihood: torch.Tensor = torch.zeros(len(words))
 
     # Calculate the log likelihood for each word and accumulate
-    # TODO
+    for i in range(len(words)):
+        total_log_likelihood[i] = calculate_log_likelihood(words[i].lower(),bigram_probabilities,char_to_index,start_token,end_token)
 
     # Calculate and return the negative mean log likelihood
-    # TODO
-    mean_log_likelihood: float = None
-    return mean_log_likelihood
+    mean_log_likelihood: float = total_log_likelihood.sum()/total_log_likelihood.shape[0]
+    return mean_log_likelihood*-1
 
 
 def sample_next_character(
@@ -81,16 +83,13 @@ def sample_next_character(
         str. The next character sampled based on the probability distribution.
     """
     # Get the probability distribution for the current character
-    # TODO
-    current_probs: torch.Tensor[float] = None
+    current_probs: torch.Tensor[float] = probability_distribution[current_char_index]
 
     # Sample an index from the distribution using the torch.multinomial function
-    # TODO
-    next_char_index: int = None
+    next_char_index: int = torch.multinomial(current_probs,1).item()
 
     # Map the index back to a character
-    # TODO
-    next_char: str = None
+    next_char: str = idx_to_char[next_char_index]
     return next_char
 
 
@@ -121,13 +120,14 @@ def generate_name(
         str. A newly generated name.
     """
     # Start with the start token and an empty name
-    # TODO
-    current_char: str = None
-    generated_name: str = None
+    current_char: str = start_token
+    generated_name: str = ""
 
     # Iterate to build the name
-    # TODO
-
+    while current_char != end_token and len(generated_name) < max_length:
+        next_character: str = sample_next_character(char_to_idx[current_char],bigram_probabilities,idx_to_char)
+        generated_name += next_character
+        current_char = next_character
     return generated_name
 
 def calculate_log_likelihood(
@@ -160,17 +160,20 @@ def calculate_log_likelihood(
         Tensor. The log likelihood of the word.
     """
     # Add start and end characters to the word
-    # TODO
-    processed_word: str = None
+    processed_word: str = start_token + word + end_token
 
     # Initialize log likelihood
-    # TODO
-    log_likelihood: torch.tensor = None
+    log_likelihood: torch.Tensor = torch.zeros(len(processed_word)-1) # ej: palabra de len 4 tiene 3 bigramas
 
     # Iterate through bigrams in the word and accumulate their log probabilities
-    # TODO
+    for i in range(len(processed_word)-1):
+        first: int = char_to_index[processed_word[i].lower()]
+        second: int = char_to_index[processed_word[i+1].lower()]
+        log_prob: float = torch.log(bigram_probabilities[first,second])
+        log_likelihood[i] = log_prob
 
-    return log_likelihood
+    return log_likelihood.sum()
+
 
 if __name__ == "__main__":
     pass
